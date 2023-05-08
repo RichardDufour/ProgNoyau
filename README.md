@@ -12,6 +12,16 @@ Vous pouvez supprimer les fichiers créés avec un `make clean`
 
 ## Utilisation
 
+Installation du périphérique et test de toutes les fonctionnalitées :
+```
+./install.sh
+```
+
+Reset de tout (sauf le fichier /tmp/periph_blk) :
+```
+./reset.sh
+```
+
 Pour insérer le module créé dans le kernel, utilisez la commande suivante :
 ```
 sudo insmod periph_blk.ko
