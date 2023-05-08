@@ -42,6 +42,7 @@ struct blk_device {
 	struct blk_mq_tag_set   tag_set;
 	struct file              *data;
 	const char 			*file_path;
+	int 			encryption_key;
 };
 
 static int copy_to_blk(struct blk_device *blk, struct bio_vec *bvec,
@@ -64,6 +65,8 @@ static int copy_to_blk(struct blk_device *blk, struct bio_vec *bvec,
 
 	// Recupere les informations dans le bio_vec
 	memcpy_from_bvec(tmp, bvec);
+
+	encrypt_buffer(tmp, blk->encryption_key);
 
 	// Ecrit les informations récupérées dans le fichier
 	kernel_write(blk->data, tmp, size, &offset);
@@ -92,6 +95,8 @@ static int copy_from_blk(struct bio_vec *bvec, struct blk_device *blk,
 
 	// Recupere les informations dans le fichier
 	kernel_read(blk->data, tmp, size , &offset);
+
+	decrypt_buffer(tmp, blk->encryption_key);
 
 	// Copie les informations récupérées dans le bio_vec
 	memcpy_to_bvec(bvec, tmp);
@@ -207,7 +212,7 @@ MODULE_PARM_DESC(filename, "Name of the tmp file use");
 
 static int private_key = 3;
 module_param(private_key, int, 0444);
-MODULE_PARM_DESC(filename, "Name of the tmp file use");
+MODULE_PARM_DESC(private_key, "Private key for encryption");
 
 static unsigned long blk_size = 50 * 1024;
 module_param(blk_size, ulong, 0444);
@@ -221,7 +226,7 @@ static unsigned int major;
 
 static struct blk_device *blk;
 
-static int blk_alloc(const char *filename, int flags, umode_t mode)
+static int blk_alloc(const char *filename, int flags, umode_t mode, int key)
 {
 	struct gendisk *disk;
 	int err = -ENOMEM;
@@ -243,6 +248,7 @@ static int blk_alloc(const char *filename, int flags, umode_t mode)
 	}
 
 	blk->file_path=filename;
+	blk->encryption_key=key;
 
 	blk->capacity = blk_size * 2;
 	memset(&blk->tag_set, 0, sizeof(blk->tag_set));
@@ -331,7 +337,7 @@ static int __init blk_init(void)
 		goto out_workqueue;
 	}
 
-	err = blk_alloc(file_name, flags, mode);
+	err = blk_alloc(file_name, flags, mode, private_key);
 	if (err) {
 		goto out_free;
 	}
